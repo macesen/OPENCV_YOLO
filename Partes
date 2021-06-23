@@ -1,0 +1,174 @@
+#PARTE 1 
+'''
+import cv2
+import numpy as np 
+
+cap=cv2.VideoCapture(0)
+
+classesFile='COCONAMES.txt'
+classNames=[]
+with open (classesFile,'rt') as f:
+    classNames=f.read().rstrip('\n').split('\n')
+print(classNames)
+print(len(classNames))
+
+while True:
+    success, img = cap.read()
+    cv2.imshow('CAMARA',img)
+    cv2.waitKey(1)
+'''
+#PARTE 2
+
+'''
+import cv2
+import numpy as np 
+whT=320
+cap=cv2.VideoCapture(0)
+#Importamos los archivos .cfg y .weights que instalamos para poder crear nuestra network
+modelConfiguration='yolov3-320.cfg'
+modelWeights='yolov3.weights'
+#Creamos como tal la network 
+#Deep Neural Network=dnn
+net=cv2.dnn.readNetFromDarknet(modelConfiguration,modelWeights)
+#Declaramos Opencv como nuestro backend y que vamos a usar CPU 
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+classesFile='COCONAMES.txt'
+classNames=[]
+with open (classesFile,'rt') as f:
+    classNames=f.read().rstrip('\n').split('\n')
+#print(classNames)
+#print(len(classNames))
+while True:
+    success, img = cap.read()
+    blob=cv2.dnn.blobFromImage(img,1/255,(whT,whT),[0,0,0],1,crop=False)
+    net.setInput(blob)
+    layerNames=net.getLayerNames()
+    #print(layerNames)
+    #print(net.getUnconnectedOutLayers())
+    #Obtener el nombre de los output layers vamos a poner
+    outputNames=[layerNames[i[0]-1] for i in net.getUnconnectedOutLayers()]
+    #print(outputNames)
+    outputs =net.forward(outputNames)
+    #print(len(outputs))
+    #print(outputs[0].shape)
+    #print(outputs[1].shape)
+    #print(outputs[2].shape)
+    cv2.imshow('CAMARA',img)
+    cv2.waitKey(1)
+'''
+#PARTE 3
+'''
+import cv2
+import numpy as np 
+whT=320
+cap=cv2.VideoCapture(0)
+classesFile='COCONAMES.txt'
+classNames=[]
+modelConfiguration='yolov3-320.cfg'
+modelWeights='yolov3.weights'
+net=cv2.dnn.readNetFromDarknet(modelConfiguration,modelWeights)
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+with open (classesFile,'rt') as f:
+    classNames=f.read().rstrip('\n').split('\n')
+confThreshold=0.5 #50%
+def findObjects(outputs,img):
+    hT,wT,cT=img.shape #Obtenemos altura,ancho y canales de la imagen
+    bbox=[] #guardara los valores de x,y,alto,ancho
+    classIds=[] #Contiene todos los ids de las clases
+    confs=[] #Contiene todos los valores de confianza
+    for outputs in outputs:
+        for det in outputs:
+            # lo que primero hacemos es tomar el valor de la mayor probabilidad
+            scores=det[5:] #Quitamos los primeros 5 valores
+            classId=np.argmax(scores) #obtenemos la dirección del valor máximo
+            confidence=scores[classId] #obtenemos el valor
+            #Ahora hacemos un filtro para nuestros objetos
+            if confidence>confThreshold:
+                w,h=int(det[2]*wT),int(det[3]*hT) #Se obtiene kos valores de ancho y alto en pixeles por eso solo se toma el entero
+                x,y=int((det[0]*wT)-w/2),int((det[1]*hT)-h/2) #Obtenemos los valores de la posición de x,y del centro 
+                bbox.append([x,y,w,h])
+                classIds.append(classId)
+                confs.append(float(confidence))
+    print(len(bbox)) 
+
+while True:
+    success, img = cap.read()
+    blob=cv2.dnn.blobFromImage(img,1/255,(whT,whT),[0,0,0],1,crop=False)
+    net.setInput(blob)
+    layerNames=net.getLayerNames()
+    outputNames=[layerNames[i[0]-1] for i in net.getUnconnectedOutLayers()]
+    outputs =net.forward(outputNames)
+    #Llamamos a la función creada
+    findObjects(outputs,img)
+    cv2.imshow('CAMARA',img)
+    cv2.waitKey(1)
+'''
+'''
+import cv2
+import numpy as np 
+
+# Lo que primero vamos a hacer es crear nuestro loop con un While para poder 
+#tomar las imagenes que nos de la webcam
+#Si se tiene 2 camaras poner 1
+#Si se tiene solo una cámara poner 0
+cap=cv2.VideoCapture(0)
+whT=320
+confThreshold=0.5 #50%
+nmsThreshold=0.3
+#Como YOLO V3 fue desarrollado con COCO dataset, primero traeremos los 
+#nombres de nuestras clases, que son 80
+classesFile='COCONAMES.txt'
+classNames=[]
+with open (classesFile,'rt') as f:
+    classNames=f.read().rstrip('\n').split('\n')
+print(classNames)
+print(len(classNames))
+
+#modelConfiguration='yolov3-tiny.cfg'
+#modelWeights='yolov3-tiny.weights'
+modelConfiguration='yolov3-320.cfg'
+modelWeights='yolov3.weights'
+net=cv2.dnn.readNetFromDarknet(modelConfiguration,modelWeights)
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+def findObjects(outputs,img):
+    hT,wT,cT=img.shape 
+    bbox=[] 
+    classIds=[]
+    confs=[] 
+    for outputs in outputs:
+        for det in outputs:
+            scores=det[5:] 
+            classId=np.argmax(scores) 
+            confidence=scores[classId]
+            if confidence>confThreshold:
+                w,h=int(det[2]*wT),int(det[3]*hT)
+                x,y=int((det[0]*wT)-w/2),int((det[1]*hT)-h/2)
+                bbox.append([x,y,w,h])
+                classIds.append(classId)
+                confs.append(float(confidence))
+    print(len(bbox))
+    indices =cv2.dnn.NMSBoxes(bbox,confs,confThreshold,nmsThreshold)
+    for i in indices:
+        i=i[0]
+        box=bbox[i]
+        x,y,w,h=box[0],box[1],box[2],box[3]
+        cv2.rectangle(img,(x,y),(x+w,y+h),(164,157,17),2)
+        cv2.putText(img,f'{classNames[classIds[i]].upper()}{int(confs[i]*100)}%',(x,y-10),cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,0,255),2)
+while True:
+    success, img = cap.read()
+    blob=cv2.dnn.blobFromImage(img,1/255,(whT,whT),[0,0,0],1,crop=False)
+    net.setInput(blob)
+    layerNames=net.getLayerNames()
+    outputNames=[layerNames[i[0]-1] for i in net.getUnconnectedOutLayers()]
+    outputs =net.forward(outputNames)
+    findObjects(outputs,img)
+    cv2.imshow('CAMARA',img)
+    cv2.waitKey(1)
+
+'''
